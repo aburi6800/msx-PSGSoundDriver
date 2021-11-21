@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 
-# lcconv.py
+# lc2asm.py
 #
 # LovelyComposerのデータをMSX用のASMソース形式に変換する。
 #
@@ -77,6 +77,9 @@ class dataClass:
     # ベースとなるspeed値
     speed = 0
 
+    # 最大ページ数
+    maxPage = 0
+
     # 出力ファイル名
     outFileName = ""
 
@@ -87,7 +90,7 @@ class dataClass:
     svNoiseTone = None
     svMixing = None
 
-    def __init__(self, jsonFileName:str = ""):
+    def __init__(self, jsonFileName = ""):
         '''
         初期化処理
         '''
@@ -117,6 +120,10 @@ class dataClass:
         channels = (self.data_body["channels"])["channels"]
         channelList = list(channels)
 
+        # 最大ページ数取得
+        self.maxPage = self.getMaxPage(self.data_body)
+
+        # 出力データサイズ
         totalSize = 0
 
         # チャネル1～3に大してダンプデータ作成
@@ -127,17 +134,48 @@ class dataClass:
 
         print("total :" + str(totalSize) + "bytes.")
 
+    def getMaxPage(self, dataBody):
+        '''
+        最大ページ数取得
+        '''
+        # ループエンドが指定されている場合は、そのページ数を返却する
+        loopEndBar = dataBody["loop_end_bar"]
+        if loopEndBar != None:
+            print("convert pages = " + str(loopEndBar))
+            return loopEndBar + 1
+
+        # ループエンドが未指定の場合は、1〜3チャンネルを順に末端から走査して、最終ページ数を返却する
+        # ページ中にデータが存在しないページ-1を最終ページとするが、1〜3チャンネルで最大のページ数とする
+        channels = dataBody["channels"]
+        channelList = channels["channels"]
+        maxPage = 0
+        for i in range(3):
+            soundList = channelList[i]["SL"]
+            for idx, sl in reversed(soundList):
+                if self.isBlankPage(sl) == False:
+                    if maxPage < idx:
+                        maxPage = idx
+                    break
+        return maxPage
+
+    def isBlankPage(self, voiceList):
+        '''
+        ブランクページ判定
+        '''
+        isBlank = 0
+        for val in enumerate(voiceList):
+            if (val["n"] is None):
+                pass
+            else:
+                isBlank = True
+                break
+        return isBlank
+
     def makeDumpData(self, argData):
         '''
         ダンプデータ作成処理
+        引数のチャンネルデータからダンプデータを生成する
         '''
-
-        # 空データカウント
-        noneCount = 0
-
-        # 終了判定フラグ
-        isTerminate = False
-
         # 各値の退避変数を初期化
         self.svVoice = None
         self.svNote = None
@@ -156,9 +194,9 @@ class dataClass:
         # 'sl'要素を取り出す
         sl = argData["sl"]
 
-        # sl要素の全てに対して繰り返す(0～15)
-        for vl in sl:
-
+        # sl要素の全てに対して繰り返す(0～最大ページ数)
+        for idx in range(self.maxPage):
+            vl = sl[idx]
             sv = vl["vl"][0]
             # ver1.2.0未満のデータ対応
             # sv["x"]が存在しなければ固定値で追加する
@@ -186,26 +224,19 @@ class dataClass:
 
                     #音長をリセット
                     time = 0
+                
+                # 次に音長をカウントした時に255を超えるのであれば、バッファに出力
+                if (time + self.speed > 255):
+                    buffer += self.addBuffer(sv, time)
+
+                    #音長をリセット
+                    time = 0
 
                 # 音長をカウント
                 time += self.speed
 
-                # トーン=None and ボリューム値=0の場合は、noneCountをインクリメント、以外はリセット
-                if (v["n"] is None):
-                    noneCount += 1
-                else:
-                    noneCount = 0
-
-                # NoneCout=32ならループ終了
-                if noneCount == 32:
-                    isTerminate = True
-                    break
-
-            if isTerminate == False:
-                # @ToDo : ここまでのボリューム値の合計を求めて、0の時は追加しないようする
-                buffer += self.addBuffer(v, time)
-            else:
-                break
+            # 最後のデータに対するバッファ出力
+            buffer += self.addBuffer(v, time)
 
         return buffer
 
@@ -241,39 +272,39 @@ class dataClass:
             self.svVolume = vl["x"]
 
         # noteは無条件でバッファに出力する
-        if self.svMixing == "%10":
-            # トーンの時の処理
-            dataList += [str(self.getNoteValue(vl["n"])), str(time)]
-        else:
+        if self.svMixing == "%01":
             # ノイズの時の処理
             noiseTone = self.getNoiseToneValue(vl["n"])
             if noiseTone != self.svNoiseTone:
                 dataList += ["202", str(noiseTone)]
                 self.svNoiseTone = noiseTone
             dataList += [str(self.getNoteValue(vl["n"])), str(time)]
+        else:
+            # トーンの時の処理
+            dataList += [str(self.getNoteValue(vl["n"])), str(time)]
 
         return dataList
 
 
-    def getNoteValue(self, tone:int) -> int:
+    def getNoteValue(self, tone):
         '''
         トーン値取得処理
         '''
         return (tone - 24 if tone != None else 0)
 
-    def getNoiseToneValue(self, tone:int) -> int:
+    def getNoiseToneValue(self, tone):
         '''
         ノイズトーン値取得処理
         '''
         return int((107-int(tone if tone != None else 1))/2.59)
 
-    def getMixingValue(self, voice:int) -> str:
+    def getMixingValue(self, voice):
         '''
         ミキシング値取得処理
         '''
         return ("%01" if voice == 3 else "%10")
 
-    def getVolumeValue(self, volume:int) -> int:
+    def getVolumeValue(self, volume):
         '''
         ボリューム値取得処理
         '''
@@ -321,7 +352,7 @@ if __name__ == "__main__":
     '''
     アプリケーション実行
     '''
-#    execute(["", "00.jsonl"])
+#    execute(["", "19.jsonl"])
 
     import sys
     execute(sys.argv)
