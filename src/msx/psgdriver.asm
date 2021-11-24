@@ -19,6 +19,14 @@ PUBLIC SOUNDDRV_STOP
 ; DRIVER INITIALIZE
 ; ====================================================================================================
 SOUNDDRV_INIT:
+    DI
+    PUSH AF
+    PUSH BC
+    PUSH DE
+    PUSH HL
+    PUSH IX
+    PUSH IY
+
 	CALL GICINI		                ; GICINI	PSGの初期化
 
     ; ■音を出す設定
@@ -46,6 +54,14 @@ SOUNDDRV_INIT_2:
     INC HL
     DJNZ SOUNDDRV_INIT_2
 
+    POP IY
+    POP IX
+    POP HL
+    POP DE
+    POP BC
+    POP AF
+    EI
+
     RET
 
 
@@ -64,6 +80,8 @@ SOUNDDRV_BGMPLAY:
     PUSH BC
     PUSH DE
     PUSH HL
+    PUSH IX
+    PUSH IY
 
     ; ■各チャンネルの初期設定
     PUSH HL
@@ -80,6 +98,8 @@ SOUNDDRV_BGMPLAY:
     LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
     LD (SOUNDDRV_STATE),A
 
+    POP IY
+    POP IX
     POP HL
     POP DE
     POP BC
@@ -104,6 +124,8 @@ SOUNDDRV_SFXPLAY:
     PUSH BC
     PUSH DE
     PUSH HL
+    PUSH IX
+    PUSH IY
 
     ; ■各チャンネルの初期設定
     PUSH HL
@@ -128,6 +150,8 @@ SOUNDDRV_SFXPLAY:
     LD (SOUNDDRV_STATE),A
 
 SOUNDDRV_SFXPLAY_EXIT:
+    POP IY
+    POP IX
     POP HL
     POP DE
     POP BC
@@ -190,6 +214,8 @@ SOUNDDRV_STOP:
     PUSH BC
     PUSH DE
     PUSH HL
+    PUSH IX
+    PUSH IY
 
     LD A,SOUNDDRV_STATE_STOP
     LD (SOUNDDRV_STATE),A
@@ -217,6 +243,8 @@ SOUNDDRV_STOP_L2:
     LD (IX+15),$00                  ; プライオリティクリア
     DJNZ SOUNDDRV_STOP_L2
 
+    POP IY
+    POP IX
     POP HL
     POP DE
     POP BC
@@ -355,9 +383,29 @@ SOUNDDRV_CHEXEC_CMD200:
     ; ■ボリューム設定処理
     ;   次のシーケンスデータを取得して、ワークエリアに設定すると同時にPSGレジスタ8～10に設定する
     ;   そして次のシーケンスデータの処理を行う
+;    CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ボリューム)
+;    LD (IX+7),A                     ; ボリューム値をワークに保存
+
+    LD A,D                          ; A <- D(トラック番号)
+    ADD A,4                         ; SFXトラックを調べるためにトラック番号にA=A+4する
+    CALL SOUNDDRV_GETWKADDR         ; HLに対象トラックの先頭アドレスを取得
+    INC HL                          ; @ToDo:トラックデータの先頭アドレスを求めることが多いので、ワークの持ち方を見直したい(毎回21ステートかかってる)
+    INC HL
+    INC HL
+    LD A,(HL)
+    INC HL
+    OR (HL)                         ; 対象トラックの先頭アドレス=$0000か
+    JR NZ,SOUNDDRV_CHEXEC_CMD200_1  ; ゼロでない場合はSFX再生中なのでCMD200_1へ
+
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ボリューム)
     LD (IX+7),A                     ; ボリューム値をワークに保存
     CALL SOUNDDRV_SETPSG_VOLUME     ; PSGレジスタ8～10設定
+
+    JP SOUNDDRV_CHEXEC_L2
+
+SOUNDDRV_CHEXEC_CMD200_1:
+    CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ボリューム)
+    LD (IX+7),A                     ; ボリューム値をワークに保存
 
     JP SOUNDDRV_CHEXEC_L2
 
