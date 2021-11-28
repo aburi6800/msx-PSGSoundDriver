@@ -77,8 +77,14 @@ class dataClass:
     # ベースとなるspeed値
     speed = 0
 
-    # 最大ページ数
-    maxPage = 0
+    # 開始ページ数
+    startPage = 0
+
+    # 最終ページ数
+    endPage = 0
+
+    # ループ有無フラグ
+    isLoop = False
 
     # 出力ファイル名
     outFileName = ""
@@ -120,10 +126,13 @@ class dataClass:
         channels = (self.data_body["channels"])["channels"]
         channelList = list(channels)
 
-        # 最大ページ数取得
-        self.maxPage = self.getMaxPage(self.data_body)
+        # 開始ページ数設定
+        self.getStartPage(self.data_body)
 
-        # 出力データサイズ
+        # 最終ページ数設定
+        self.getEndPage(self.data_body)
+
+        # 出力データサイズ初期化
         totalSize = 0
 
         # チャネル1～3に大してダンプデータ作成
@@ -134,29 +143,48 @@ class dataClass:
 
         print("total :" + str(totalSize) + "bytes.")
 
-    def getMaxPage(self, dataBody):
+    def getStartPage(self, dataBody):
         '''
-        最大ページ数取得
+        開始ページ数取得
+        '''
+        # 初期値はゼロとする
+        startPage = 0
+
+        # ループスタートが指定されている場合は、そのページ数を返却する
+        loopStartBar = dataBody["loop_start_bar"]
+        if loopStartBar != None:
+            startPage = loopStartBar
+
+        print("loop start page = " + str(loopStartBar))
+        self.startPage = startPage
+
+    def getEndPage(self, dataBody):
+        '''
+        終了ページ数取得
         '''
         # ループエンドが指定されている場合は、そのページ数を返却する
         loopEndBar = dataBody["loop_end_bar"]
-        if loopEndBar != None:
-            print("convert pages = " + str(loopEndBar))
-            return loopEndBar + 1
 
-        # ループエンドが未指定の場合は、1〜3チャンネルを順に末端から走査して、最終ページ数を返却する
-        # ページ中にデータが存在しないページ-1を最終ページとするが、1〜3チャンネルで最大のページ数とする
-        channels = dataBody["channels"]
-        channelList = channels["channels"]
-        maxPage = 0
-        for i in range(3):
-            soundList = channelList[i]["SL"]
-            for idx, sl in reversed(soundList):
-                if self.isBlankPage(sl) == False:
-                    if maxPage < idx:
-                        maxPage = idx
-                    break
-        return maxPage
+        if loopEndBar != None:
+            endPage = loopEndBar + 1
+            self.isLoop = True
+
+        else:
+            # ループエンドが未指定の場合は、1〜3チャンネルを順に末端から走査して、最終ページ数を返却する
+            # ページ中にデータが存在しないページ-1を最終ページとするが、1〜3チャンネルで最大のページ数とする
+            channels = dataBody["channels"]
+            channelList = channels["channels"]
+            endPage = 0
+            for i in range(3):
+                soundList = channelList[i]["SL"]
+                for idx, sl in reversed(soundList):
+                    if self.isBlankPage(sl) == False:
+                        if endPage < idx:
+                            endPage = idx
+                        break
+
+        print("loop end page = " + str(endPage))
+        self.endPage = endPage
 
     def isBlankPage(self, voiceList):
         '''
@@ -195,7 +223,7 @@ class dataClass:
         sl = argData["sl"]
 
         # sl要素の全てに対して繰り返す(0～最大ページ数)
-        for idx in range(self.maxPage):
+        for idx in range(self.endPage):
             vl = sl[idx]
             sv = vl["vl"][0]
             # ver1.2.0未満のデータ対応
@@ -205,6 +233,10 @@ class dataClass:
 
             #音長をリセット
             time = 0
+
+            # 処理対象がゼロ以外でstartPageである場合は、ループ開始データをバッファに追加する
+            if idx > 0 and idx == self.startPage:
+                buffer += ["253"]
 
             # vl要素の全てに対して繰り返す(0～31)
             for v in vl["vl"]:
@@ -338,13 +370,15 @@ class dataClass:
                         if i % 16 == 0:
                             if s != "":
                                 f.write("    DB  " + s + "\n")
-                            s =  v
+                            s =  str(v)
                         else:
-                            s += ", " + v
+                            s += ", " + str(v)
                     if s != "":
                         f.write("    DB  " + s + "\n")
-                    # @ToDo : ループ指定の有無で254(ループあり)、255(ループなし)を指定可能としたい
-                    f.write("    DB  255\n")
+                    if self.isLoop:
+                        f.write("    DB  254\n")
+                    else:
+                        f.write("    DB  255\n")
 
         print("export complete.")
 
@@ -352,7 +386,7 @@ if __name__ == "__main__":
     '''
     アプリケーション実行
     '''
-#    execute(["", "19.jsonl"])
+    execute(["", "00.jsonl"])
 
-    import sys
-    execute(sys.argv)
+#    import sys
+#    execute(sys.argv)
