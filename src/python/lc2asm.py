@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
-# 
+# ====================================================================================================
+#
 # lc2asm.py
 #
+# licence:MIT Licence
+# copyright-holders:Hitoshi Iwai(aburi6800)
+#
+# ====================================================================================================
+
+# 概要：
 # LovelyComposerのデータをMSX用のASMソース形式に変換する。
 #
 # 仕様：
@@ -18,8 +25,7 @@
 #   - 音長は以下で計算する。
 #       (speed / 2) (端数切捨) ※ここは結構影響が大きいので、後で要調整
 # - ボリューム('x')
-#   - 12を15、1を1とする。以下で計算。
-#       value*1.25 (端数切捨)
+#   - LCも1～15のためそのままの値を使用する。
 #   - 直前のデータと値が変わらない場合はデータを出力しない。
 # - PSGR#7 (ノイズ/トーンのミキシング)
 #   - 以下の音色はノイズとし、以外をトーンとする
@@ -31,25 +37,14 @@
 #       (107 - value) / 2.59 (端数切捨)
 # - ハードウェアエンベロープは使わない。(複数チャンネルで波形が同じになるため、使いにくい)
 # - ファイル出力はLCSoundデータ単位に行う(=LCVoiceの要素、32トーン)
+# - LCで1ぺージのノート数、speed、全ページ数を変更した場合、それに従ったデータを出力する。
+
 import json
 import os
 
-#lcc = lcconv()
-#lcc.execute(argv)
-#sys.exit(0)
-
-#class lcconv:
 '''
 lcconvクラス
 '''
-# 出力データクラス
-dc = None
-
-#def __init__(self):
-#    '''
-#    クラス初期化
-#    '''
-
 def execute(argv):
     '''
     変換処理実行
@@ -76,6 +71,12 @@ class dataClass:
 
     # ベースとなるspeed値
     speed = 0
+
+    # 最大ページ数
+    maxPage = 0
+
+    # １ページあたりのノート数
+    noteParPage = 0
 
     # 開始ページ数
     startPage = 0
@@ -122,6 +123,9 @@ class dataClass:
         self.speed = int((self.data_body["speed"]) / 1.8)
         print("speed = " + str(self.speed))
 
+        # 最大ページ数取得
+        self.maxPage = int(self.data_body["pages"])
+
         # 各チャネルのデータを取得
         channels = (self.data_body["channels"])["channels"]
         channelList = list(channels)
@@ -154,8 +158,8 @@ class dataClass:
         loopStartBar = dataBody["loop_start_bar"]
         if loopStartBar != None:
             startPage = loopStartBar
+            print("loop start page = " + str(loopStartBar))
 
-        print("loop start page = " + str(loopStartBar))
         self.startPage = startPage
 
     def getEndPage(self, dataBody):
@@ -168,6 +172,7 @@ class dataClass:
         if loopEndBar != None:
             endPage = loopEndBar + 1
             self.isLoop = True
+            print("loop end page = " + str(endPage))
 
         else:
             # ループエンドが未指定の場合は、1〜3チャンネルを順に末端から走査して、最終ページ数を返却する
@@ -176,27 +181,32 @@ class dataClass:
             channelList = channels["channels"]
             endPage = 0
             for i in range(3):
-                soundList = channelList[i]["SL"]
-                for idx, sl in reversed(soundList):
-                    if self.isBlankPage(sl) == False:
+                soundList = channelList[i].get("sl")
+                for idx, sl in enumerate(reversed(soundList)):
+                    if self.isBlankPage(sl.get("vl")) == False:
                         if endPage < idx:
                             endPage = idx
                         break
+            endPage = self.maxPage - endPage
+            print("play end page = " + str(endPage))
 
-        print("loop end page = " + str(endPage))
         self.endPage = endPage
 
-    def isBlankPage(self, voiceList):
+    def isBlankPage(self, voiceList) -> bool:
         '''
         ブランクページ判定
         '''
-        isBlank = 0
+        isBlank = True
+        if voiceList == None:
+            return isBlank
+
         for val in enumerate(voiceList):
-            if (val["n"] is None):
+            if (val[1].get("n") is None):
                 pass
             else:
-                isBlank = True
+                isBlank = False
                 break
+
         return isBlank
 
     def makeDumpData(self, argData):
@@ -231,7 +241,10 @@ class dataClass:
             if "x" not in sv:
                 sv["x"] = 12
 
-            #音長をリセット
+            # speed値取得
+            self.speed = int((vl["play_speed"]) / 1.8)
+
+            # 音長をリセット
             time = 0
 
             # 処理対象がゼロ以外でstartPageである場合は、ループ開始データをバッファに追加する
@@ -239,8 +252,10 @@ class dataClass:
                 buffer += ["253"]
 
             # vl要素の全てに対して繰り返す(0～31)
-            for v in vl["vl"]:
+            notes = int(vl["play_notes"])
 
+            for idx in range(notes):
+                v = vl["vl"][idx]
                 # ver1.2.0未満のデータ対応
                 # v["x"]が存在しなければ固定値で追加する
                 if "x" not in v:
@@ -340,7 +355,8 @@ class dataClass:
         '''
         ボリューム値取得処理
         '''
-        return int(volume*1.25)
+#        return int(volume*1.25)
+        return int(volume) # 変換する必要がなかったが関数として残しておく
 
     def export(self):
         '''
@@ -386,7 +402,7 @@ if __name__ == "__main__":
     '''
     アプリケーション実行
     '''
-    execute(["", "00.jsonl"])
+#    execute(["", "13.jsonl"])
 
-#    import sys
-#    execute(sys.argv)
+    import sys
+    execute(sys.argv)
