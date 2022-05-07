@@ -10,6 +10,12 @@ z88dkのz80asmでコンパイルできる形にしています。
 - ノイズON/OFF、トーン、ノイズトーン、ボリューム、デチューンに対応
 - lc2asm.pyでLovelyComposerで制作したデータから変換して使用可能（制約あり）
 
+## 実行サンプル
+
+以下のURLでサンプルプログラムを用いたドライバの動作確認ができます。  
+
+https://webmsx.org/?MACHINE=MSX1J&ROM=https://github.com/aburi6800/msx-PSGSoundDriver/raw/master/dist/sample.rom&FAST_BOOT
+
 ## 使用方法
 
 ### 利用プログラムの事前準備
