@@ -124,10 +124,6 @@ python src/python/lc2asm.py <jsonlファイル名>
 
 ## 改訂履歴
 
-<<<<<<< HEAD
-2021/12/04
-- lc2asm ver1.2
-=======
 2022/05/07  Version 1.20
 - psgdriver.py
     - ボリュームデータの構成変更、併せて他コマンドのデータ変更。1.1までと互換性がないのでご注意ください。
@@ -136,17 +132,12 @@ python src/python/lc2asm.py <jsonlファイル名>
 
 2021/12/04  Version 1.11
 - lc2asn.py
->>>>>>> Bug：効果音が再生されないことがある
     - lc2asm.pyでページ単位のノート数・SPEED値の変更、全ページ数の変更に対応。
 
 2021/11/28  Version 1.10
 - psgdriver.asm
     - LovelyComposerのループ開始・終了位置の指定に対応
-<<<<<<< HEAD
-- lc2asm ver1.1
-=======
 - lc2asn.py
->>>>>>> Bug：効果音が再生されないことがある
     - ループ終了の指定があるときはループあり、指定がない場合はループ無しのデータを出力するように修正
 
 2021/11/19  Version 1.00
@@ -154,9 +145,5 @@ python src/python/lc2asm.py <jsonlファイル名>
     - 効果音の割り込み再生に対応
     - 効果音の再生優先度（プライオリティ）を設定可能
     - ノイズON/OFF、トーン、ノイズトーン、ボリューム、デチューンに対応
-<<<<<<< HEAD
-- lc2asm ver1.0
-=======
 - lc2asn.py
->>>>>>> Bug：効果音が再生されないことがある
     - LovelyComposerで制作したデータから変換して使用可能（制約あり）
