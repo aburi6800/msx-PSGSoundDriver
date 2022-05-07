@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
-# target name "testapp.rom"
-project(testapp.rom C ASM)
+# target name "sample.rom"
+project(sample.rom C ASM)
 
 enable_language(ASM)
 
@@ -16,7 +16,7 @@ header_directories(
 )
 
 add_source_files(
-    ./src/msx/testapp.asm
+    ./src/msx/sample.asm
     ./src/msx/psgdriver.asm
 )
 
@@ -28,7 +28,6 @@ add_compile_flags(C
     -lndos
     -lmsxbios
     -m
-    # -debug
     # https://github.com/z88dk/z88dk/wiki/Classic-allocation#automatic-heap-configuration
     -DAMALLOC
 )
@@ -40,6 +39,7 @@ add_compile_flags(ASM
 add_compile_flags(LD
     -create-app
     -subtype=rom
+    -m
 )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../dist)

@@ -25,7 +25,7 @@
 #   - 音長は以下で計算する。
 #       (speed / 2) (端数切捨) ※ここは結構影響が大きいので、後で要調整
 # - ボリューム('x')
-#   - LCも1～15のためそのままの値を使用する。
+#   - LCも1～15のためそのままの値を使用、+200してデータとする。
 #   - 直前のデータと値が変わらない場合はデータを出力しない。
 # - PSGR#7 (ノイズ/トーンのミキシング)
 #   - 以下の音色はノイズとし、以外をトーンとする
@@ -192,9 +192,10 @@ class dataClass:
 
         self.endPage = endPage
 
-    def isBlankPage(self, voiceList) -> bool:
+    def isBlankPage(self, voiceList):
         '''
         ブランクページ判定
+        @return bool
         '''
         isBlank = True
         if voiceList == None:
@@ -300,30 +301,31 @@ class dataClass:
         dataList = []
 
         # voiceが前回の設定値から変わったか判定する
-        # 変わった場合はコマンドとPSGR#6,#7の設定値をバッファに出力する
+        # 変わった場合はコマンド(217)とPSGR#7の設定値をバッファに出力する
         if self.svVoice != vl["id"] and vl["id"] != None:
             mixing = self.getMixingValue(vl["id"])
             if mixing != self.svMixing:
                 # ミキシングの値が変わった場合のみバッファに出力する
-                dataList += ["201", mixing]
+                dataList += ["217", mixing]
                 self.svMixing = mixing
                 self.svVoice = vl["id"]
 
         # volumeが前回の設定値から変わったか判定する
-        # 変わった場合はコマンドとPSGR#8〜10に設定値をバッファに出力する
+        # 変わった場合はコマンド(200+PSGR#8〜10に設定値)をバッファに出力する
         if vl["n"] == None:
             # 一度noteを置いて削除した場合、noteがNoneでもvolumeが設定されているため、対処する
             vl["x"] = 0
         if self.svVolume != vl["x"]:
-            dataList += ["200", str(self.getVolumeValue(vl["x"]))]
+            dataList += [str(self.getVolumeValue(vl["x"]))]
             self.svVolume = vl["x"]
 
         # noteは無条件でバッファに出力する
         if self.svMixing == "%01":
             # ノイズの時の処理
+            # 変わった場合はコマンド(216)とPSGR#6の設定値をバッファに出力する
             noiseTone = self.getNoiseToneValue(vl["n"])
             if noiseTone != self.svNoiseTone:
-                dataList += ["202", str(noiseTone)]
+                dataList += ["216", str(noiseTone)]
                 self.svNoiseTone = noiseTone
             dataList += [str(self.getNoteValue(vl["n"])), str(time)]
         else:
@@ -356,7 +358,7 @@ class dataClass:
         ボリューム値取得処理
         '''
 #        return int(volume*1.25)
-        return int(volume) # 変換する必要がなかったが関数として残しておく
+        return int(200+volume) # lcのVolume値+200(200〜215)
 
     def export(self):
         '''
@@ -402,7 +404,7 @@ if __name__ == "__main__":
     '''
     アプリケーション実行
     '''
-#    execute(["", "13.jsonl"])
+#    execute(["", "00.jsonl"])
 
     import sys
     execute(sys.argv)

@@ -29,6 +29,11 @@ SOUNDDRV_INIT:
 
 	CALL GICINI		                ; GICINI	PSGの初期化
 
+    LD A,$C3                        ; JP
+    LD HL,SOUNDDRV_EXEC             ; サウンドドライバのアドレス
+    LD (H_TIMI+0),A
+    LD (H_TIMI+1),HL
+
     ; ■音を出す設定
 	LD A,7			                ; PSGレジスタ番号=7(チャンネル設定)
 	LD E,%10111111	                ; 各チャンネルのON/OFF設定 0:ON 1:OFF,10+NOISE C～A+TONE C～A
@@ -85,14 +90,14 @@ SOUNDDRV_BGMPLAY:
 
     ; ■各チャンネルの初期設定
     PUSH HL
-    LD A,0                          ; BGMトラックの先頭トラック番号
+    XOR A
     CALL SOUNDDRV_GETWKADDR         ; HL <- 対象トラックのワークエリア先頭アドレス
     PUSH HL                         ; IX <- HL
     POP IX
     POP HL
 
     ; ■BGMトラックにBGMデータを設定
-    LD A,0
+    XOR A
     CALL SOUNDDRV_INITWK
 
     LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
@@ -264,7 +269,7 @@ SOUNDDRV_EXEC:
     JP Z,SOUNDDRV_EXIT              ; ゼロ(停止)なら抜ける
 
     ; ■各トラックの処理
-    LD A,0                          ; A <- 0(BGMトラック0=ChA)
+    XOR A
     CALL SOUNDDRV_CHEXEC
     LD A,1                          ; A <- 1(BGMトラック1=ChB)
     CALL SOUNDDRV_CHEXEC
@@ -290,15 +295,13 @@ SOUNDDRV_EXIT:
 SOUNDDRV_CHEXEC:
     LD D,A                          ; A -> D (Dレジスタにトラック番号を退避)
 
-    CALL SOUNDDRV_GETWKADDR         ; HLにトラックワークエリアの先頭アドレスを取得
+    CALL SOUNDDRV_GETWKADDR         ; HL <-トラックワークエリアの先頭アドレスを取得
     PUSH HL                         ; IX <- HL
     POP IX
     
     ; ■トラックデータの先頭アドレスをチェック
-    LD H,(IX+3)
-    LD L,(IX+4)
-    LD A,H
-    OR L
+    LD A,(IX+3)
+    OR (IX+4)
     RET Z                           ; トラックデータの先頭アドレス=ゼロ(未登録)なら抜ける    
 
     ; ■発声中の音のウェイトカウンタを減算
@@ -310,55 +313,31 @@ SOUNDDRV_CHEXEC_L2:
     ;   発声が終了していたら、次のデータを取得する
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ
     JP Z,SOUNDDRV_CHEXEC_L3         ; ゼロフラグが立っている場合はL3へ
-                                    ; 取得したデータが終端の時はゼロフラグが立っている
+                                    ; (取得したデータが終端の時はゼロフラグが立っている)
 
 SOUNDDRV_CHEXEC_L21:
     ; ■コマンドによる分岐
-    ; @ToDo : ここの分岐はもう少しスマートにしたい、ノート番号が多く出現するので200未満の時を優先に
-    CP 200                          ; データ=200(ボリューム)か
-    JP Z,SOUNDDRV_CHEXEC_CMD200     ; ボリューム設定処理へ
+    CP 218                          ; データ=218(デチューン値)か
+    JP Z,SOUNDDRV_CHEXEC_CMD218     ; デチューン値設定処理へ
 
-    CP 201                          ; データ=201(ミキシング)か
-    JP Z,SOUNDDRV_CHEXEC_CMD201     ; ミキシング設定処理へ
+    CP 217                          ; データ=217(ミキシング)か
+    JP Z,SOUNDDRV_CHEXEC_CMD217     ; ミキシング設定処理へ
 
-    CP 202                          ; データ=202(ノイズトーン)か
-    JP Z,SOUNDDRV_CHEXEC_CMD202     ; ノイズトーン設定処理へ
-
-    CP 210                          ; データ=210(デチューン値)か
-    JP Z,SOUNDDRV_CHEXEC_CMD210     ; デチューン値設定処理へ
+    CP 216                          ; データ=216(ノイズトーン)か
+    JP Z,SOUNDDRV_CHEXEC_CMD216     ; ノイズトーン設定処理へ
 
     CP 253                          ; データ=253(ループ開始位置)か
     JP Z,SOUNDDRV_CHEXEC_CMD253     ; ループ開始位置設定処理へ
 
-    ; ■データ=0〜190のときの処理
+    CP 200                          ; データ=200〜(ボリューム)か
+    JP NC,SOUNDDRV_CHEXEC_CMD20X    ; ボリューム設定処理へ
+
+ 
+    ; ■データ=0〜190(トーンデータ)のときの処理
     ;   トーンテーブルから該当するデータを取得し、PSGレジスタ0〜5に設定する
     ;   次のデータを取得して、ウェイトカウンタに設定する
-    LD E,A                          ; E <- A(シーケンスデータ)
-    LD A,D                          ; A <- D(トラック番号)
-    AND %00000100                   ; bit2=1(=SFX)か
-    JR NZ,SOUNDDRV_CHEXEC_L22       ; 1(=SFX)の場合はL22へ
-
-    ;   BGMトラックの時の処理
-    ;   SFXトラックのワークに設定されているSFXデータの先頭アドレスを調べる
-    ;   $0000でない場合はSFX再生中なので、トーンデータは設定せず、ウェイトカウンタの設定のみ行う
-    LD A,D                          ; A <- D(トラック番号)
-    ADD A,4                         ; SFXトラックを調べるためにトラック番号にA=A+4する
-    CALL SOUNDDRV_GETWKADDR         ; HLに対象トラックの先頭アドレスを取得
-
-    INC HL                          ; @ToDo:トラックデータの先頭アドレスを求めることが多いので、ワークの持ち方を見直したい(毎回21ステートかかってる)
-    INC HL
-    INC HL
-
-    LD A,(HL)
-    INC HL
-    OR (HL)                         ; 対象トラックの先頭アドレス=$0000か
-    JR NZ,SOUNDDRV_CHEXEC_L23       ; ゼロでない場合はSFX再生中なのでBGMのトーンは設定せずL23へ
-
-SOUNDDRV_CHEXEC_L22:
-    ; ■PSGレジスタ0〜5に設定する値をトーンテーブルから取得し、
-    ;  各トラックのワークに保存し、PSGレジスタ0～5に設定する
-    LD B,0                          ; BC <- E(シーケンスデータ)
-    LD C,E    
+    LD B,0                          ; BC <- A(シーケンスデータ)
+    LD C,A    
     LD HL,SOUNDDRV_TONETBL          ; HL <- トーンテーブルの先頭アドレス
     ADD HL,BC                       ; トーンデータは2byteなのでインデックスx2とする
     ADD HL,BC
@@ -370,6 +349,27 @@ SOUNDDRV_CHEXEC_L22:
     LD A,(HL)                       ; A <- トーンデータ(上位)
     LD (IX+9),A                     ; トーンデータ(上位)をワークに保存
 
+
+    LD A,D                          ; A <- D(トラック番号)
+    CP 3
+    JR NC,SOUNDDRV_CHEXEC_L22       ; 1(=SFX)の場合はL22へ
+
+    ;   BGMトラックの時の処理
+    ;   SFXトラックのワークに設定されているSFXデータの先頭アドレスを調べる
+    ;   $0000でない場合はSFX再生中なので、トーンデータは設定せず、ウェイトカウンタの設定のみ行う
+    ADD A,4                         ; SFXトラックを調べるためにトラック番号に+4する
+    CALL SOUNDDRV_GETWKADDR         ; HLに対象トラックの先頭アドレスを取得
+
+    INC HL                          ; @ToDo:トラックデータの先頭アドレスを求めることが多いので、ワークの持ち方を見直したい(毎回21ステートかかってる)
+    INC HL
+    INC HL
+
+    LD A,(HL)                       ; 対象トラックの先頭アドレス=$0000か
+    INC HL
+    OR (HL)
+    JR NZ,SOUNDDRV_CHEXEC_L23       ; ゼロでない場合はSFX再生中なのでBGMのトーンは設定せずL24へ
+
+SOUNDDRV_CHEXEC_L22:
     CALL SOUNDDRV_SETPSG_TONE       ; トーン(PSGレジスタ0～5)設定
 
 SOUNDDRV_CHEXEC_L23:
@@ -377,7 +377,7 @@ SOUNDDRV_CHEXEC_L23:
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ
     LD (IX),A                       ; ワークにウェイトカウンタを設定
 
-    JP SOUNDDRV_CHEXEC_EXIT
+    RET
 
 ; ----------------------------------------------------------------------------------------------------
 ; データ終端処理
@@ -385,8 +385,8 @@ SOUNDDRV_CHEXEC_L23:
 SOUNDDRV_CHEXEC_L3:
     ; ■現在のトラックがBGMかSFXかを判定する
     LD A,D                          ; A <- D(トラック番号)
-    AND %00000100                   ; ビット2を調べる(=トラック番号が4〜6か)
-    JP NZ,SOUNDDRV_CHEXEC_L4        ; 1(=SFXトラック)ならL4へ
+    CP 3
+    JP NC,SOUNDDRV_CHEXEC_L4        ; 1(=SFXトラック)ならL4へ
 
     ; ■BGMの再生が終了した場合
     LD (IX+3),$00                   ; ワークエリアのトラックデータ先頭アドレスをゼロに初期化
@@ -396,7 +396,7 @@ SOUNDDRV_CHEXEC_L3:
     RET
 
 SOUNDDRV_CHEXEC_L4:
-    ; ■SFXの再生が終了した場合（対象BGMトラックの状態を復元）
+    ; ■SFXの再生が終了した場合は、対象BGMトラックの状態を復元
     LD (IX+3),$00                   ; ワークエリアのトラックデータ先頭アドレスをゼロに初期化
     LD (IX+4),$00
     LD (IX+15),$00                  ; プライオリティをゼロに初期化
@@ -411,56 +411,60 @@ SOUNDDRV_CHEXEC_L4:
     CALL SOUNDDRV_SETPSG_VOLUME     ; ボリューム(PSGレジスタ8～10)設定
     CALL SOUNDDRV_SETPSG_TONE       ; トーン(PSGレジスタ0～5)設定
 
-SOUNDDRV_CHEXEC_EXIT:
+;SOUNDDRV_CHEXEC_EXIT:
     RET
 
 ; ----------------------------------------------------------------------------------------------------
-; コマンド：200（ボリューム）設定
+; コマンド：200〜215（ボリューム）設定
 ; ----------------------------------------------------------------------------------------------------
-SOUNDDRV_CHEXEC_CMD200:
+SOUNDDRV_CHEXEC_CMD20X:
     ; ■ボリューム設定処理
-    ;   次のシーケンスデータを取得して、ワークエリアに設定すると同時にPSGレジスタ8～10に設定する
+    ;   コマンドデータ-200がボリューム値になるため、計算してワークエリアに設定する
     ;   そして次のシーケンスデータの処理を行う
+    SUB 200                         ; A=A-200(0〜15のボリューム値にする)
+    LD (IX+7),A                     ; ボリューム値をワークに保存
+
     LD A,D                          ; A <- D(トラック番号)
+
+    ; ■現在のトラックがBGMかSFXかを判定する
+    CP 3
+    JP NC,SOUNDDRV_CHEXEC_CMD20X_L1 ; 1(=SFXトラック)ならL1へ
+
     ADD A,4                         ; SFXトラックを調べるためにトラック番号にA=A+4する
     CALL SOUNDDRV_GETWKADDR         ; HLに対象トラックの先頭アドレスを取得
+
     INC HL                          ; @ToDo:トラックデータの先頭アドレスを求めることが多いので、ワークの持ち方を見直したい(毎回21ステートかかってる)
     INC HL
     INC HL
+
     LD A,(HL)
     INC HL
     OR (HL)                         ; 対象トラックの先頭アドレス=$0000か
-    JR NZ,SOUNDDRV_CHEXEC_CMD200_1  ; ゼロでない場合はSFX再生中なのでCMD200_1へ
+    JR NZ,SOUNDDRV_CHEXEC_CMD20X_L2 ; ゼロでない場合はSFX再生中なのでCMD20X_1へ
 
-    CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ボリューム)
-    LD (IX+7),A                     ; ボリューム値をワークに保存
+SOUNDDRV_CHEXEC_CMD20X_L1:
     CALL SOUNDDRV_SETPSG_VOLUME     ; PSGレジスタ8～10設定
 
-    JP SOUNDDRV_CHEXEC_L2
-
-SOUNDDRV_CHEXEC_CMD200_1:
-    CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ボリューム)
-    LD (IX+7),A                     ; ボリューム値をワークに保存
-
+SOUNDDRV_CHEXEC_CMD20X_L2:
     JP SOUNDDRV_CHEXEC_L2
 
 ; ----------------------------------------------------------------------------------------------------
-; コマンド：201（ミキシング値）設定
+; コマンド：217（ミキシング値）設定
 ;   次のシーケンスデータを取得して、ワークエリアに設定すると同時にPSGレジスタ7に設定する
 ;   そして次のシーケンスデータの処理を行う
 ; ----------------------------------------------------------------------------------------------------
-SOUNDDRV_CHEXEC_CMD201:
+SOUNDDRV_CHEXEC_CMD217:
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ミキシング値)
     LD (IX+6),A
 
     JP SOUNDDRV_CHEXEC_L2
 
 ; ----------------------------------------------------------------------------------------------------
-; コマンド：202（ノイズトーン値）設定
+; コマンド：216（ノイズトーン値）設定
 ;   次のシーケンスデータを取得して、ワークエリアに設定する
 ;   そして次のシーケンスデータの処理を行う
 ; ----------------------------------------------------------------------------------------------------
-SOUNDDRV_CHEXEC_CMD202:
+SOUNDDRV_CHEXEC_CMD216:
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(ノイズトーン値)
     LD (IX+10),A                    ; ノイズトーン値をワークに保存
     CALL SOUNDDRV_SETPSG_NOISETONE  ; ノイズトーン(PSGレジスタ6)設定
@@ -468,11 +472,11 @@ SOUNDDRV_CHEXEC_CMD202:
     JP SOUNDDRV_CHEXEC_L2
 
 ; ----------------------------------------------------------------------------------------------------
-; コマンド：210（デチューン値）設定
+; コマンド：218（デチューン値）設定
 ;   次のシーケンスデータを取得して、ワークエリアに設定する
 ;   そして次のシーケンスデータの処理を行う
 ; ----------------------------------------------------------------------------------------------------
-SOUNDDRV_CHEXEC_CMD210:
+SOUNDDRV_CHEXEC_CMD218:
     CALL SOUNDDRV_GETNEXTNATA       ; A <- シーケンスデータ(デチューン値)
     LD (IX+5),A
 
@@ -565,7 +569,7 @@ SOUNDDRV_SETPSG_VOLUME:
 SOUNDDRV_SETPSG_MIXING:
     LD B,3                          ; ループ回数
 
-    LD A,%00
+    XOR A
     LD (SOUNDDRV_WK_MIXING_TONE),A  ; A -> PSGレジスタ7のWK(bit0〜2:Tone設定用)初期化
     LD (SOUNDDRV_WK_MIXING_NOISE),A ; A -> PSGレジスタ7のWK(bit3〜5:Noise設定用)初期化
 
@@ -663,8 +667,8 @@ SOUNDDRV_GETNEXTNATA:
     JR NZ,SOUNDDRV_GETNEXTNATA_L2   ; $FEでなければL2へ
 
     ; ■トラックデータをループ先頭に戻す
-    OR A                            ; ゼロフラグをクリアする
-                                    ; A=0ではないので、これでゼロフラグはOFFになる
+    INC A                           ; ゼロフラグをクリアする
+                                    ; (Aレジスタに無条件に1を加算、ここに来る前提でAは$FF未満なのでゼロフラグは必ずOFFになる)
     LD C,(IX+3)                     ; BC <- トラックデータの先頭アドレス
     LD B,(IX+4)
     LD A,(BC)                       ; Aレジスタにトラックデータを読み直す
@@ -711,6 +715,9 @@ SECTION rodata_user
 
 ; ■BIOSアドレス定義
 INCLUDE "include/msxbios.inc"
+
+; ■システムワークエリア定義
+INCLUDE "include\msxsyswk.inc"
 
 SOUNDDRV_STATE_STOP:    EQU 0       ; サウンドドライバ状態：停止
 SOUNDDRV_STATE_PLAY:    EQU 1       ; サウンドドライバ状態：演奏中
