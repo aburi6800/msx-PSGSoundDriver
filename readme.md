@@ -148,7 +148,7 @@ python src/python/lc2asm.py <jsonlファイル名>
 
 ## 改訂履歴
 
-2022/05/29  Versinn 1.3.0
+2022/05/29  Version 1.3.0
 - バージョン表記をセマンティックバージョニングに合わせて修正
 - psgdriver.py
     - H.TIMIフックのコールチェインができるよう、バックアップを保存し処理の最後でCALLするように修正。
