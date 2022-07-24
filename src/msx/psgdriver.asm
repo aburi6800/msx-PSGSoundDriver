@@ -104,7 +104,6 @@ SOUNDDRV_BGMPLAY:
     POP HL
 
     ; ■BGMトラックにBGMデータを設定
-    XOR A
     CALL SOUNDDRV_INITWK
 
     LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
@@ -139,25 +138,28 @@ SOUNDDRV_SFXPLAY:
     PUSH IX
     PUSH IY
 
-    ; ■各チャンネルの初期設定
+    ; ■プライオリティ判定
+    PUSH HL                         ; HL -> SPに退避
+    XOR A                           ; BGMトラックの先頭トラック番号
+    CALL SOUNDDRV_GETWKADDR         ; HL <- 対象トラックのワークエリア先頭アドレス
     PUSH HL
+    POP IX                          ; IX <- HL
+    LD B,(IX+15)                    ; B <- 再生中のBGMトラックのプライオリティ
+
     LD A,4                          ; SFXトラックの先頭トラック番号
     CALL SOUNDDRV_GETWKADDR         ; HL <- 対象トラックのワークエリア先頭アドレス
-    PUSH HL                         ; IX <- HL
-    POP IX
-    POP HL
-
-    ; ■プライオリティ判定
-    LD A,(HL)                       ; SFXデータのプライオリティ
-    LD B,(IX+15)                    ; SFXトラックのプライオリティ
-    CP B                            ; A = A - B
+    PUSH HL
+    POP IX                          ; IX <- HL
+    LD A,(IX+15)                    ; A <- 再生中のSFXトラックのプライオリティ
+    OR B                            ; A <- 再生中のBGM+SFXのプライオリティ値
+    LD B,A                          ; B <- A (この後のCPの挙動を今までと同じにするための措置)
+    POP HL                          ; HL <- SPから復元(SFXデータのアドレス)
+    LD A,(HL)                       ; B <- SFXデータのプライオリティ
+    CP B                            ; 再生中のBGM+SFXのプライオリティ値 - SFXデータのプライオリティ値
     JR C,SOUNDDRV_SFXPLAY_EXIT      ; キャリーフラグONの場合は処理せずに終了する
-                                    ; (SFXデータ < SFXトラック、
-                                    ;  プライオリティが同値の場合はSFXデータを設定する)
 
     ; ■SFXトラックにSFXデータを設定
     CALL SOUNDDRV_INITWK
-
     LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
     LD (SOUNDDRV_STATE),A
 
@@ -182,6 +184,7 @@ SOUNDDRV_INITWK:
     LD B,3                          ; チャンネル数
 
 SOUNDDRV_INITWK_L1:
+    LD A,(HL)                       ; A <- プライオリティ
     INC HL
     LD E,(HL)                       ; DE <- BGM/SFXデータの先頭アドレス
     INC HL
