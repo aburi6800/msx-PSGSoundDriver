@@ -728,7 +728,7 @@ SECTION rodata_user
 INCLUDE "include/msxbios.inc"
 
 ; ■システムワークエリア定義
-INCLUDE "include\msxsyswk.inc"
+INCLUDE "include/msxsyswk.inc"
 
 SOUNDDRV_STATE_STOP:    EQU 0       ; サウンドドライバ状態：停止
 SOUNDDRV_STATE_PLAY:    EQU 1       ; サウンドドライバ状態：演奏中
