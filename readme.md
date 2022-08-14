@@ -27,6 +27,9 @@ EXTERN SOUNDDRV_EXEC
 EXTERN SOUNDDRV_BGMPLAY
 EXTERN SOUNDDRV_SFXPLAY
 EXTERN SOUNDDRV_STOP
+EXTERN SOUNDDRV_PAUSE
+EXTERN SOUNDDRV_RESUME
+EXTERN SOUNDDRV_STATUS
 ```
 - プログラムの初期処理で、ドライバの初期化ルーチン(SOUNDDRV_INIT)をCALLします。
     - この初期化ルーチンの中でH.TIMIフックのコード（5byte）をバックアップし、ドライバを実行するように書き換えを行います。
@@ -62,6 +65,24 @@ EXTERN SOUNDDRV_STOP
 ```
     CALL SOUNDDRV_STOP
 ```
+- `SOUNDDRV_PAUSE`
+    - BGM、効果音の再生を一時停止する。
+```
+    CALL SOUNDDRV_PAUSE
+```
+- `SOUNDDRV_RESUME`
+    - BGM、効果音の一時停止を解除する。
+    - 再生中に呼び出した場合は、何も処理しない。
+```
+    CALL SOUNDDRV_RESUME
+```
+- `SOUNDDRV_STATUS`
+    - ドライバのステータスを取得する。
+    - bit 0は再生中であれば1、停止中であれば0となる。
+    - bit 1は一時停止中であれば1、以外は0となる。
+---
+    LD A,(SOUNDDRV_STATUS)
+---
 
 ## データ構造
 
