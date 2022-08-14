@@ -181,6 +181,11 @@ LovelyComposerの機能に対し、作成されるデータには以下の制約
 
 ## 改訂履歴
 
+2022/08/14  Version 1.5.0
+- psgdriver.asm
+    - 一時停止(SOUNDDRV_PAUSE)/再開(SOUNDDRV_RESUME)のAPIを追加
+    - ドライバの状態を取得するAPI(SOUNDDRV_STATUS)を追加
+
 2022/08/06  Version 1.4.1
 - psgdriver.asm
     - includeのパス区切り文字のミスを修正
