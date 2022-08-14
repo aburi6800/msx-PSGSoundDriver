@@ -14,6 +14,9 @@ PUBLIC SOUNDDRV_EXEC
 PUBLIC SOUNDDRV_BGMPLAY
 PUBLIC SOUNDDRV_SFXPLAY
 PUBLIC SOUNDDRV_STOP
+PUBLIC SOUNDDRV_PAUSE
+PUBLIC SOUNDDRV_RESUME
+PUBLIC SOUNDDRV_STATE
 
 ; ====================================================================================================
 ; DRIVER INITIALIZE
@@ -268,6 +271,63 @@ SOUNDDRV_STOP_L2:
 
     RET
 
+; ====================================================================================================
+; PLAY PAUSE
+; ====================================================================================================
+SOUNDDRV_PAUSE:
+    DI
+    PUSH AF
+;    PUSH BC
+;    PUSH DE
+;    PUSH HL
+;    PUSH IX
+;    PUSH IY
+
+    LD A,(SOUNDDRV_STATE)
+    OR SOUNDDRV_STATE_PAUSE         ; 一時停止状態にする
+    LD (SOUNDDRV_STATE),A
+
+SOUNDDRV_PAUSE_EXIT:
+;    POP IY
+;    POP IX
+;    POP HL
+;    POP DE
+;    POP BC
+    POP AF
+    EI
+
+    RET
+
+; ====================================================================================================
+; PLAY RESUME
+; ====================================================================================================
+SOUNDDRV_RESUME:
+    DI
+    PUSH AF
+;    PUSH BC
+;    PUSH DE
+;    PUSH HL
+;    PUSH IX
+;    PUSH IY
+
+    LD A,(SOUNDDRV_STATE)
+    CP SOUNDDRV_STATE_PAUSE
+    JP C,SOUNDDRV_RESUME_EXIT       ; 一時停止状態でなければ抜ける
+
+    SUB SOUNDDRV_STATE_PAUSE        ; 一時停止状態を解除する
+    LD (SOUNDDRV_STATE),A
+
+SOUNDDRV_RESUME_EXIT:
+;    POP IY
+;    POP IX
+;    POP HL
+;    POP DE
+;    POP BC
+    POP AF
+    EI
+
+    RET
+
 
 ; ====================================================================================================
 ; DRIVER EXECUTE
@@ -277,6 +337,8 @@ SOUNDDRV_EXEC:
     LD A,(SOUNDDRV_STATE)           ; A <- サウンドドライバの状態
     OR A
     JP Z,SOUNDDRV_EXIT              ; ゼロ(停止)なら抜ける
+    CP SOUNDDRV_STATE_PAUSE
+    JP NC,SOUNDDRV_ALLMUTE           ; 一時停止中の処理
 
     ; ■各トラックの処理
     XOR A
@@ -298,6 +360,21 @@ SOUNDDRV_EXEC:
 SOUNDDRV_EXIT:
 ;    RET
     JP SOUNDDRV_H_TIMI_BACKUP
+
+; ----------------------------------------------------------------------------------------------------
+; 一時停止中の処理
+; チャンネル1〜3のボリュームをゼロにする
+; ----------------------------------------------------------------------------------------------------
+SOUNDDRV_ALLMUTE:
+    XOR A
+    LD E,A                          ; E = 書き込むデータ(ボリュームゼロ)
+    LD A,8
+    CALL WRTPSG
+    LD A,9
+    CALL WRTPSG
+    LD A,10
+    CALL WRTPSG
+    JP SOUNDDRV_EXIT
 
 ; ----------------------------------------------------------------------------------------------------
 ; トラックデータ再生処理
@@ -728,10 +805,12 @@ SECTION rodata_user
 INCLUDE "include/msxbios.inc"
 
 ; ■システムワークエリア定義
-INCLUDE "include\msxsyswk.inc"
+INCLUDE "include/msxsyswk.inc"
 
 SOUNDDRV_STATE_STOP:    EQU 0       ; サウンドドライバ状態：停止
 SOUNDDRV_STATE_PLAY:    EQU 1       ; サウンドドライバ状態：演奏中
+SOUNDDRV_STATE_PAUSE:   EQU 2       ; サウンドドライバ状態：一時停止
+
 SOUNDDRV_WORK_DATASIZE: EQU 16      ; サウンドドライバ1chのワークエリアサイズ
 
 
