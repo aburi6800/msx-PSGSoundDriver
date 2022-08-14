@@ -80,9 +80,9 @@ EXTERN SOUNDDRV_STATUS
     - ドライバのステータスを取得する。
     - bit 0は再生中であれば1、停止中であれば0となる。
     - bit 1は一時停止中であれば1、以外は0となる。
----
+```
     LD A,(SOUNDDRV_STATUS)
----
+```
 
 ## データ構造
 
@@ -90,6 +90,7 @@ EXTERN SOUNDDRV_STATUS
 BGM、効果音共に同じ構成になります。  
 ```
 [BGM/SFX Data]
+  +- [Priority](1byte)
   +- [Track 1 Data Address](2byte)
   +- [Track 2 Data Address](2byte)
   +- [Track 3 Data Address](2byte)
