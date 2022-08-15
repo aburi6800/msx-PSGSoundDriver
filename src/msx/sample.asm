@@ -62,6 +62,8 @@ INIT:
     CALL PRTFIXSTR
     LD DE,STRDATA12
     CALL PRTFIXSTR
+    LD DE,STRDATA13
+    CALL PRTFIXSTR
 
     ; --------------------------------------------------
     ; ドライバを使用するプログラムで必要
@@ -83,20 +85,28 @@ MAINLOOP:
 
     LD A,(KEYBUFF+21)               ; F1キーの入力を取得
     OR A
-    JR Z,MAINLOOP_L0                ; キーバッファの値がゼロ(=OFF)なら次の処理へ
+    JR Z,MAINLOOP_L0                ; 未入力(=キーバッファの値がゼロ)なら次の処理へ
 
+    ; F1キーが押されていたらここに入る
     LD A,(SOUNDDRV_STATE)           ; サウンドドライバーの状態が一時停止中か？
     CP 2
-    JR C,MAINLOOP_L                 ; 2未満（=一時停止していない)なら一時停止する
+    JR C,MAINLOOP_L                 ; 2未満(=一時停止していない)なら一時停止する
 
     CALL SOUNDDRV_RESUME    
 	JR MAINLOOP
 
 MAINLOOP_L:
     CALL SOUNDDRV_PAUSE    
+    LD HL,_SFX_PAUSE
+    CALL SOUNDDRV_SFXPLAY
+
 	JR MAINLOOP
 
 MAINLOOP_L0:
+    LD A,(SOUNDDRV_STATE)           ; サウンドドライバーの状態が一時停止中か？
+    AND 2
+    JR NZ,MAINLOOP
+
     LD B,10                         ; 0〜9のキーの入力をチェック
     LD DE,KEYBUFF                   ; キーバッファの先頭アドレス
 
@@ -495,6 +505,9 @@ STRDATA11:
 STRDATA12:
     DW 32*17+3
 	DB "[0] STOP",0
+STRDATA13:
+    DW 32*19+3
+	DB "[F1]PAUSE",0
 CURDATA0:
     DB " ",0
 CURDATA1:
@@ -515,6 +528,7 @@ INCLUDE "sample_res/05.asm"
 INCLUDE "sample_res/06.asm"
 INCLUDE "sample_res/07.asm"
 INCLUDE "sample_res/sfx_03.asm"
+INCLUDE "sample_res/sfx_pause.asm"
 
 
 ; ====================================================================================================

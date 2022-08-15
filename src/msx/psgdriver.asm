@@ -109,7 +109,8 @@ SOUNDDRV_BGMPLAY:
     ; ■BGMトラックにBGMデータを設定
     CALL SOUNDDRV_INITWK
 
-    LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
+    LD A,(SOUNDDRV_STATE)
+    OR SOUNDDRV_STATE_PLAY          ; サウンドドライバの状態を再生中にする
     LD (SOUNDDRV_STATE),A
 
     POP IY
@@ -163,7 +164,9 @@ SOUNDDRV_SFXPLAY:
 
     ; ■SFXトラックにSFXデータを設定
     CALL SOUNDDRV_INITWK
-    LD A,SOUNDDRV_STATE_PLAY        ; サウンドドライバの状態を再生中にする
+
+    LD A,(SOUNDDRV_STATE)
+    OR SOUNDDRV_STATE_PLAY          ; サウンドドライバの状態を再生中にする
     LD (SOUNDDRV_STATE),A
 
 SOUNDDRV_SFXPLAY_EXIT:
@@ -235,7 +238,13 @@ SOUNDDRV_STOP:
     PUSH IX
     PUSH IY
 
-    LD A,SOUNDDRV_STATE_STOP
+    LD A,(SOUNDDRV_STATE)
+    AND SOUNDDRV_STATE_PAUSE        ; サウンドドライバの状態を停止にする
+                                    ; 一時停止状態は保持するため、2とのANDを取る
+                                    ; - 0 AND 2 -> 0
+                                    ; - 1 AND 2 -> 0
+                                    ; - 2 AND 2 -> 2
+                                    ; - 3 AND 2 -> 2
     LD (SOUNDDRV_STATE),A
 
     ; ■全PSGチャンネルのボリュームを0にする
@@ -284,7 +293,10 @@ SOUNDDRV_PAUSE:
 ;    PUSH IY
 
     LD A,(SOUNDDRV_STATE)
-    OR SOUNDDRV_STATE_PAUSE         ; 一時停止状態にする
+    CP SOUNDDRV_STATE_PAUSE
+    JP NC,SOUNDDRV_RESUME_EXIT      ; 一時停止状態であれば抜ける
+
+    XOR SOUNDDRV_STATE_PAUSE        ; 一時停止状態にする
     LD (SOUNDDRV_STATE),A
 
 SOUNDDRV_PAUSE_EXIT:
@@ -314,8 +326,21 @@ SOUNDDRV_RESUME:
     CP SOUNDDRV_STATE_PAUSE
     JP C,SOUNDDRV_RESUME_EXIT       ; 一時停止状態でなければ抜ける
 
-    SUB SOUNDDRV_STATE_PAUSE        ; 一時停止状態を解除する
+    XOR SOUNDDRV_STATE_PAUSE        ; 一時停止状態を解除する
     LD (SOUNDDRV_STATE),A
+
+    LD B,3
+SOUNDDRV_RESUME_L1:
+    LD A,B                          ; A <- B(ループカウンタ：1〜3)
+    DEC A
+    CALL SOUNDDRV_GETWKADDR         ; HL <- 対応するBGMトラックのワークエリアアドレス
+    PUSH HL                         ; IX <- HL(最後なのでIXは壊してもOK)
+    POP IX
+
+    CALL SOUNDDRV_SETPSG_NOISETONE  ; ノイズトーン(PSGレジスタ6)設定
+;    CALL SOUNDDRV_SETPSG_VOLUME     ; ボリューム(PSGレジスタ8～10)設定
+;    CALL SOUNDDRV_SETPSG_TONE       ; トーン(PSGレジスタ0～5)設定
+    DJNZ SOUNDDRV_RESUME_L1
 
 SOUNDDRV_RESUME_EXIT:
 ;    POP IY
@@ -347,6 +372,7 @@ SOUNDDRV_EXEC:
     CALL SOUNDDRV_CHEXEC
     LD A,2                          ; A <- 2(BGMトラック2=ChC)
     CALL SOUNDDRV_CHEXEC
+SOUNDDRV_EXEC_L1:
     LD A,4                          ; A <- 4(SFXトラック0=ChA)
     CALL SOUNDDRV_CHEXEC
     LD A,5                          ; A <- 5(SFXトラック1=ChB)
@@ -374,7 +400,8 @@ SOUNDDRV_ALLMUTE:
     CALL WRTPSG
     LD A,10
     CALL WRTPSG
-    JP SOUNDDRV_EXIT
+;    JP SOUNDDRV_EXIT
+    JP SOUNDDRV_EXEC_L1
 
 ; ----------------------------------------------------------------------------------------------------
 ; トラックデータ再生処理
@@ -494,6 +521,10 @@ SOUNDDRV_CHEXEC_L4:
     CALL SOUNDDRV_GETWKADDR         ; HL <- 対応するBGMトラックのワークエリアアドレス
     PUSH HL                         ; IX <- HL(最後なのでIXは壊してもOK)
     POP IX
+
+    LD A,(SOUNDDRV_STATE)
+    AND SOUNDDRV_STATE_PAUSE
+    RET NZ
 
     CALL SOUNDDRV_SETPSG_NOISETONE  ; ノイズトーン(PSGレジスタ6)設定
     CALL SOUNDDRV_SETPSG_VOLUME     ; ボリューム(PSGレジスタ8～10)設定
