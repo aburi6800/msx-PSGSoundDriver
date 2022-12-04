@@ -1,4 +1,8 @@
-# PSGSoundDriver
+[ [Engligh](README.md) | [日本語](README.ja.md) ]  
+
+---
+
+# PSGSoundDriver for MSX
 
 ## 概要
 
@@ -8,13 +12,49 @@ z88dkのz80asmでコンパイルできる形にしています。
 - 効果音の割り込み再生に対応
 - 効果音の再生優先度（プライオリティ）を設定可能
 - ノイズON/OFF、トーン、ノイズトーン、ボリューム、デチューンに対応
-- lc2asm.pyでLovelyComposerで制作したデータから変換して使用可能（制約あり）
+- `lc2asm.py`で、LovelyComposerで制作したデータを変換して使用可能（制約あり）
 
 ## 実行サンプル
 
 以下のURLでサンプルプログラムを用いたドライバの動作確認ができます。  
 
 https://webmsx.org/?MACHINE=MSX1J&ROM=https://github.com/aburi6800/msx-PSGSoundDriver/raw/master/dist/sample.rom&FAST_BOOT
+
+
+## ビルド方法
+
+### cmakeを利用する場合の手順：
+
+このプロジェクトに含まれている`CMakeLists.txt`を編集し、このプレイヤーのソース(`psgdriver.asm`)と作成したソースを指定します。  
+たとえば、サンプルプログラムの場合は以下の定義になっています。  
+```
+add_source_files(
+    ./src/msx/sample.asm
+    ./src/msx/psgdriver.asm
+)
+```
+
+そして、makeファイルを生成するため、プロジェクトのルートディレクトリで以下のコマンドを実行します。（初回のみ、２回目以降は不要）
+```
+$ mkdir build && cd build
+$ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/z88dk.cmake ..
+```
+
+ビルドは`build`ディレクトリで以下のコマンドを実行します。
+```
+$ make clean && make
+```
+
+`.rom`ファイルは`dist`ディレクトリに作成されます。
+
+### zccコマンドを利用する場合の手順：
+
+ソースディレクトリに入り、以下コマンドを実行します。（ソースファイル名は、適宜変更してください）  
+コマンドは`zcc`ですが、アセンブラでもCでも同じです。  
+includeファイルのパス指定など、他オプションの詳細については`zcc -h`で表示されるヘルプを参照ください。  
+```
+$ zcc +msx -create-app -subtype=rom psgdriver.asm sample.asm -o=../../dist/build.rom 
+```
 
 ## 使用方法
 
@@ -31,8 +71,8 @@ EXTERN SOUNDDRV_PAUSE
 EXTERN SOUNDDRV_RESUME
 EXTERN SOUNDDRV_STATUS
 ```
-- プログラムの初期処理で、ドライバの初期化ルーチン(SOUNDDRV_INIT)をCALLします。
-    - この初期化ルーチンの中でH.TIMIフックのコード（5byte）をバックアップし、ドライバを実行するように書き換えを行います。
+- プログラムの初期処理で、ドライバの初期化ルーチン(`SOUNDDRV_INIT`)をCALLします。
+    - この初期化ルーチンの中で`H.TIMI`フックのコード（5byte）をバックアップし、ドライバを実行するように書き換えを行います。
     - アプリケーション側でもH.TIMIフックで実行する処理がある場合、必ずH.TIMIから5バイトのバックアップを取っておき、処理の最後でバックアップしたアドレスにJPしてください。
     - なお、アプリケーションでドライバの初期化ルーチンをCALLするのは、H.TIMIフックの書き替え前／後のどちらでも構いません。
 ```
@@ -58,7 +98,7 @@ EXTERN SOUNDDRV_STATUS
     - HLレジスタに再生する効果音データのアドレスを指定する。
 ```
     LD HL,SFXDATA
-    CALL SOUNDDRV_BGMPLAY
+    CALL SOUNDDRV_SFXPLAY
 ```
 - `SOUNDDRV_STOP`
     - BGM、効果音の再生を停止する。
@@ -94,6 +134,9 @@ BGM、効果音共に同じ構成になります。
   +- [Track 1 Data Address](2byte)
   +- [Track 2 Data Address](2byte)
   +- [Track 3 Data Address](2byte)
+[Track 1 Data]
+[Track 2 Data]
+[Track 3 Data]
 ```
 > すなわち、効果音として作成したデータをBGMとして鳴らすこともできますし、その逆も可能です。  
 > また、上記のように、トラックデータの集まりを曲データとしているため、複数のBGM/効果音で同じトラックを使いまわすこともできます。  
@@ -125,7 +168,7 @@ BGM/効果音データの構成を定義します。
 
 ### 音長について
 
-音調は以下で求めることが可能です。  
+音長は以下で求めることが可能です。  
 
 - 1秒あたりの発音数：<テンポ>/60秒  
 - 4分音符の音長：60/(1秒あたりの発音数)  
@@ -139,10 +182,6 @@ BGM/効果音データの構成を定義します。
 - 16分音符の音長：15 / 2 = 7.5  
  
 > データに設定する値は整数なので、端数が出る場合は、ノートの音長の合計で辻褄が合うように調整してください。  
-
-### ビルド方法
-
-（更新中）  
 
 ## LovelyComposerからのコンバートツール（lc2asm.py）について
 
@@ -182,50 +221,45 @@ LovelyComposerの機能に対し、作成されるデータには以下の制約
 
 ## 改訂履歴
 
+### psgdriver.asm
+
 2022/08/14  Version 1.5.0
-- psgdriver.asm
-    - 一時停止(SOUNDDRV_PAUSE)/再開(SOUNDDRV_RESUME)のAPIを追加
-    - ドライバの状態を取得するAPI(SOUNDDRV_STATUS)を追加
+- 一時停止(SOUNDDRV_PAUSE)/再開(SOUNDDRV_RESUME)のAPIを追加
+- ドライバの状態を取得するAPI(SOUNDDRV_STATUS)を追加
 
 2022/08/06  Version 1.4.1
-- psgdriver.asm
-    - includeのパス区切り文字のミスを修正
+- includeのパス区切り文字のミスを修正
 
 2022/07/24  Version 1.4.0
-- psgdriver.asm
-    - SFX再生時にBGMのプライオリティも判断するように修正  
-      (プライオリティを最高に設定したBGMの演奏中はSFXが再生されなくなります)
-- readme.md
-    - lc2asm.pyに対する記述を修正
+- SFX再生時にBGMのプライオリティも判断するように修正  
+    (プライオリティを最高に設定したBGMの演奏中はSFXが再生されなくなります)
+- readme更新
 
 2022/05/29  Version 1.3.0
 - バージョン表記をセマンティックバージョニングに合わせて修正
-- psgdriver.asm
-    - H.TIMIフックのコールチェインができるよう、バックアップを保存し処理の最後でCALLするように修正。
-- readme.md
-    - H.TIMIフックの書き換えについて追記。
-    - lc2asmの制約等について追記。
+- H.TIMIフックのコールチェインができるよう、バックアップを保存し処理の最後でCALLするように修正。
+- readme更新
 
 2022/05/07  Version 1.20
-- psgdriver.asm
-    - ボリュームデータの構成変更、併せて他コマンドのデータ変更。1.1までと互換性がないのでご注意ください。
-- lcsasm.py
-    - ボリュームデータの構成変更、併せて他コマンドのデータ変更に対応。
-
-2021/12/04  Version 1.11
-- lc2asn.py
-    - lc2asm.pyでページ単位のノート数・SPEED値の変更、全ページ数の変更に対応。
+- ボリュームデータの構成変更、併せて他コマンドのデータ変更。1.1までと互換性がないのでご注意ください。
 
 2021/11/28  Version 1.10
-- psgdriver.asm
-    - LovelyComposerのループ開始・終了位置の指定に対応
-- lc2asn.py
-    - ループ終了の指定があるときはループあり、指定がない場合はループ無しのデータを出力するように修正
+- LovelyComposerのループ開始・終了位置の指定に対応
 
 2021/11/19  Version 1.00
-- psgdriver.asm
-    - 効果音の割り込み再生に対応
-    - 効果音の再生優先度（プライオリティ）を設定可能
-    - ノイズON/OFF、トーン、ノイズトーン、ボリューム、デチューンに対応
-- lc2asn.py
-    - LovelyComposerで制作したデータから変換して使用可能（制約あり）
+- 初期作成
+
+
+### lc2asm.py
+
+2022/05/07  Version 1.20
+- ボリュームデータの構成変更、併せて他コマンドのデータ変更に対応。
+
+2021/12/04  Version 1.11
+- ページ単位のノート数・SPEED値の変更、全ページ数の変更に対応。
+
+2021/11/28  Version 1.10
+- ループ終了の指定があるときはループあり、指定がない場合はループ無しのデータを出力するように修正
+
+2021/11/19  Version 1.00
+- 初期作成
