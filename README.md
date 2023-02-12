@@ -7,7 +7,7 @@
 ## Overview
 
 This is a PSG sound driver for MSX.  
-It can be compiled and used with z88dk's z80asm.  
+It is in a form that can be compiled with z88dk (zcc). 
 Supported functions are as follows:  
 - Supports interrupted playback of sound effects  
 - Playback priority can be set for sound effects  
@@ -56,7 +56,24 @@ For details on other options, such as specifying the path to the include file, s
 ```
 $ zcc +msx -create-app -subtype=rom psgdriver.asm sample.asm -o=../../dist/build.rom 
 ```
+### For use with assemblers such as z88dk-z80asm
 
+You can also use z88dk-z80asm or other assemblers included in z88dk.  
+See [z88dk-z80asm documentation](https://github.com/z88dk/z88dk/wiki/Tool---z80asm) for more information.  
+Other assemblers also use few z88dk-specific features such as macros, which can be handled with a few modifications.  
+>Note :  
+>The area after the label definition part below is a work area.  
+If you compile with >zcc, it will be properly addressed, otherwise specify ORG to be addressed to RAM area($8000~, etc.).
+>- SOUNDDRV_WORKAREA : 120byte  
+>
+>This breakdown is as follows. (do not change the order of placement)
+>- SOUNDDRV_H_TIMI_BACKUP : 5byte
+>- SOUNDDRV_STATE : 1byte
+>- SOUNDDRV_WK_MIXING_TONE : 1byte
+>- SOUNDDRV_WK_MIXING_NOISE : 1byte
+>- SOUNDDRV_BGMWK : 48byte
+>- SOUNDDRV_DUMMYWK : 16byte
+>- SOUNDDRV_SFXWK : 48byte
 
 ## How to use
 
@@ -161,14 +178,29 @@ The track data consists of the following:
 
 | Command | Function | Overview |
 |:---|:---|:---|
-| 0〜95 | note (tone table index number) | Specified in the format 0 to 95,<value>. The value specifies the note length (n/60). Details on tones are described below. |
-| 200〜215 | volume | Corresponds to command values 0 to 15. (Same as the value set in PSG registers #8 to #10) |
-| 216 | noise tone | Specified in the format of 216,<value>. Specify 0 to 31 for the value. (Same as the value set in PSG register #6) |
-| 217 | mixing | Specified in the format of 217,<value>. Specify 0 to 3 for the value. (bit0=Tone/bit1=Noise, 1=off/0=on) |
-| 218 | detune | Specified in the format 218,<value>. The value specifies the correction value for the note. |
-| 253 | start of loop position | When looping at the end of data, the loop starts with the data at this address. |
-| 254 | End of data (return to track start or loop start position) | Returns to the position specified by command 243. If there is no command 243, returns to the beginning. |
-| 255 | End of data (end of playback) | (none) |
+| 0〜95<br>($00〜$5F) | note number<br>(See "Note Number Table" below for setting values) | Specified in the format 0 to 95,<value>. The value specifies the note length (n/60). <br>See "About Tone Length" below for more information about note length. |
+| 200〜215<br>($CB〜$D7) | volume | Corresponds to command values 0 to 15. (Same as the value set in PSG registers #8 to #10) |
+| 216<br>($D8) | noise tone | Specified in the format of 216,<value>. Specify 0 to 31 for the value. (Same as the value set in PSG register #6) |
+| 217<br>($D9) | mixing | Specified in the format of 217,<value>. Specify 0 to 3 for the value. (bit0=Tone/bit1=Noise, 1=off/0=on)<br>Example) %10 = Tone ON, Noise OFF |
+| 218<br>($DA) | detune | Specified in the format 218,<value>. The value specifies the correction value for the note. |
+| 253<br>($FD)| start of loop position | When looping at the end of data, the loop starts with the data at this address. |
+| 254<br>($FE) | End of data (return to track start or loop start position) | Returns to the position specified by command 243. If there is no command 243, returns to the beginning. |
+| 255<br>($FF) | End of data (end of playback) | (none) |
+
+### Note Number Table
+
+The note number (scale) is set to the following tone table value.
+
+| octave | C | C+<br>(D-) | D | D+<br>(E-) | E | F | F+<br>(G-) | G | G+<br>(A-) | A | A+<br>(B-) | B |
+| :---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| o1 | $00 | $01 | $02 | $03 | $04 | $05 | $06 | $07 | $08 | $09 | $0A | $0B |
+| o2 | $0C | $0D | $0E | $0F | $10 | $11 | $12 | $13 | $14 | $15 | $16 | $17 |
+| o3 | $18 | $19 | $1A | $1B | $1C | $1D | $1E | $1F | $20 | $21 | $22 | $23 |
+| o4 | $24 | $25 | $26 | $27 | $28 | $29 | $2A | $2B | $2C | $2D | $2E | $2F |
+| o5 | $30 | $31 | $32 | $33 | $34 | $35 | $36 | $37 | $38 | $39 | $3A | $3B |
+| o6 | $3C | $3D | $3E | $3F | $40 | $41 | $42 | $43 | $44 | $45 | $46 | $47 |
+| o7 | $48 | $49 | $4A | $4B | $4C | $4D | $4E | $4F | $50 | $51 | $52 | $53 |
+| o8 | $54 | $55 | $56 | $57 | $58 | $59 | $5A | $5B | $5C | $5D | $5E | $5F |
 
 ### About Tone Length
 
@@ -226,48 +258,52 @@ Data conversion has the following limitations to LovelyComposer's functionality:
 
 ## Release notes
 
-### psgdriver.asm
-
-2022/08/14  Version 1.5.0
-- Added pause (`SOUNDDRV_PAUSE`)/resume (`SOUNDDRV_RESUME`) API
-- Added API (SOUNDDRV_STATUS) to obtain driver status
-
-2022/08/06  Version 1.4.1
-- Fixed path delimiter error in includes
-
-2022/07/24  Version 1.4.0
-- SFX playback now also determines the priority of the BGM.  
-    (SFX will not be played while BGM with the highest priority is playing.)
-
-2022/05/29  Version 1.3.0
-- Version notation modified to match semantic versioning
-- Modified to save backup and CALL at the end of processing to allow call chaining of H.TIMI hooks.
+2023/02/12  Version 1.5.1  
+- psgdriver.asm  
+    - Abolished "include" and added a label at the beginning of the work area    
 - README update
 
-2022/05/07  Version 1.20
-- Volume data configuration changes, along with data changes for other commands.
-Please note that this is not compatible with the previous version up to 1.1.
+2022/08/14  Version 1.5.0  
+- psgdriver.asm  
+    - Added pause (`SOUNDDRV_PAUSE`)/resume (`SOUNDDRV_RESUME`) API  
+    - Added API (SOUNDDRV_STATUS) to obtain driver status  
 
-2021/11/28  Version 1.10
-- LovelyComposer's support for specifying the loop start/end position
+2022/08/06  Version 1.4.1  
+- psgdriver.asm  
+    - Fixed path delimiter error in includes  
 
-2021/11/19  Version 1.00
-- initial creation
+2022/07/24  Version 1.4.0  
+- psgdriver.asm  
+    - SFX playback now also determines the priority of the BGM.  
+        (SFX will not be played while BGM with the highest priority is playing.)  
 
+2022/05/29  Version 1.3.0  
+- psgdriver.asm  
+    - Version notation modified to match semantic versioning  
+    - Modified to save backup and CALL at the end of processing to allow call chaining of H.TIMI hooks.  
+- lc2asm.py  
+    - Version notation modified to match semantic versioning  
+- README update
 
-### lc2asm.py
-
-2022/05/29  Version 1.3.0
-- Version notation modified to match semantic versioning
-
-2022/05/07  Version 1.20
-- Support for volume data configuration changes, as well as data changes for other commands.
+2022/05/07  Version 1.20  
+- psgdriver.asm  
+    - Volume data configuration changes, along with data changes for other commands.  
+    Please note that this is not compatible with the previous version up to 1.1.  
+- lc2asm.py  
+    - Support for volume data configuration changes, as well as data changes for other commands.  
 
 2021/12/04  Version 1.11
-- Support for changing the number of notes and SPEED values per page and the number of all pages.
+- lc2asm.py  
+    - Support for changing the number of notes and SPEED values per page and the number of all pages.  
 
-2021/11/28  Version 1.10
-- Modified to output data with loop when end of loop is specified, and without loop when not specified.
+2021/11/28  Version 1.10  
+- psgdriver.asm  
+    - LovelyComposer's support for specifying the loop start/end position  
+- lc2asm.py  
+    - Modified to output data with loop when end of loop is specified, and without loop when not specified.  
 
-2021/11/19  Version 1.00
-- initial creation
+2021/11/19  Version 1.00  
+- psgdriver.asm  
+    - initial creation  
+- lc2asm.py  
+    - initial creation

@@ -30,10 +30,12 @@ SOUNDDRV_INIT:
     PUSH IX
     PUSH IY
 
-	CALL GICINI		                ; GICINI	PSGの初期化
+;	CALL GICINI		                ; GICINI	PSGの初期化
+	CALL $0090		                ; GICINI	PSGの初期化
 
     ; ■H.TIMIバックアップ
-    LD HL,H_TIMI                    ; 転送元
+;    LD HL,H_TIMI                    ; 転送元
+    LD HL,$FD9F                     ; 転送元
     LD DE,SOUNDDRV_H_TIMI_BACKUP    ; 転送先
     LD BC,5                         ; 転送バイト数
     LDIR
@@ -41,14 +43,17 @@ SOUNDDRV_INIT:
     ; ■H.TIMI書き換え
     LD A,$C3                        ; JP
     LD HL,SOUNDDRV_EXEC             ; サウンドドライバのアドレス
-    LD (H_TIMI+0),A
-    LD (H_TIMI+1),HL
+;    LD (H_TIMI+0),A
+    LD ($FD9F+0),A
+;    LD (H_TIMI+1),HL
+    LD ($FD9F+1),HL
 
     ; ■音を出す設定
 	LD A,7			                ; PSGレジスタ番号=7(チャンネル設定)
 	LD E,%10111111	                ; 各チャンネルのON/OFF設定 0:ON 1:OFF,10+NOISE C～A+TONE C～A
                                     ; 初期状態では全てOFFとする
-	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     ; ■ ドライバステータス初期化
     LD A,SOUNDDRV_STATE_STOP
@@ -253,7 +258,8 @@ SOUNDDRV_STOP_L1:
     LD E,0                          ; E <- データ(ボリューム)
     LD A,B                          ; A <- トラック番号
     ADD A,7                         ; PSGレジスタ8〜10に指定するため+7
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
     DJNZ SOUNDDRV_STOP_L1
 
     ; ■全トラックのワークをクリア
@@ -395,11 +401,14 @@ SOUNDDRV_ALLMUTE:
     XOR A
     LD E,A                          ; E = 書き込むデータ(ボリュームゼロ)
     LD A,8
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
     LD A,9
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
     LD A,10
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 ;    JP SOUNDDRV_EXIT
     JP SOUNDDRV_EXEC_L1
 
@@ -629,11 +638,13 @@ SOUNDDRV_SETPSG_TONE:
     AND %00000011                   ; 下位2ビットをチャンネル番号とする
     ADD A,A                         ; PSGレジスタ番号=0/2/4(下位8ビット)
     LD E,(IX+8)                     ; E <- ワークのトーン(下位)
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     INC A                           ; PSGレジスタ番号=1/3/5(上位4ビット)
     LD E,(IX+9)                     ; E <- ワークのトーン(上位)
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     RET
 
@@ -646,7 +657,8 @@ SOUNDDRV_SETPSG_TONE:
 SOUNDDRV_SETPSG_NOISETONE:
     LD E,(IX+10)
     LD A,6
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     RET
 
@@ -664,7 +676,8 @@ SOUNDDRV_SETPSG_VOLUME:
     AND %00000011                   ; 下位2ビットをチャンネル番号とする
     ADD A,8                         ; PSGレジスタ8〜10に指定するため+8
     LD E,(IX+7)
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     RET
 
@@ -760,7 +773,8 @@ SOUNDDRV_SETPSG_MIXING_L3:
     OR %10000000                    ; bit7〜6を設定
     LD E,A
     LD A,7
-    CALL WRTPSG
+;	CALL WRTPSG		                ; BIOS WRTPSG  PSGレジスタへデータを書き込み
+    CALL $0093                      ; BIOS WRTPSG  PSGレジスタへデータを書き込み
 
     RET
 
@@ -833,10 +847,7 @@ SOUNDDRV_GETWKADDR_L1:
 SECTION rodata_user
 
 ; ■BIOSアドレス定義
-INCLUDE "include/msxbios.inc"
-
-; ■システムワークエリア定義
-INCLUDE "include/msxsyswk.inc"
+;INCLUDE "include/msxbios.inc"
 
 SOUNDDRV_STATE_STOP:    EQU 0       ; サウンドドライバ状態：停止
 SOUNDDRV_STATE_PLAY:    EQU 1       ; サウンドドライバ状態：演奏中
@@ -866,6 +877,7 @@ SOUNDDRV_TONETBL:
 ; ====================================================================================================
 SECTION bss_user
 
+SOUNDDRV_WORKAREA:
 ; ----------------------------------------------------------------------------------------------------
 ; H.TIMIフックバックアップ
 ; ----------------------------------------------------------------------------------------------------

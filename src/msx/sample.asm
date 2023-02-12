@@ -451,13 +451,13 @@ PRTSTR_END:
 SECTION rodata_user
 
 ; ■BIOSアドレス定義
-INCLUDE "include/msxbios.inc"
+INCLUDE "sample_res/msxbios.inc"
 
 ; ■システムワークエリアアドレス定義
-INCLUDE "include/msxsyswk.inc"
+INCLUDE "sample_res/msxsyswk.inc"
 
 ; ■VRAMワークエリアアドレス定義
-INCLUDE "include/msxvrmwk.inc"
+INCLUDE "sample_res/msxvrmwk.inc"
 
 ; ■キースキャン用定数
 KEY_ON:                 EQU $01     ; キーオン
