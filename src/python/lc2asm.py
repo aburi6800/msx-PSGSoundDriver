@@ -41,22 +41,87 @@
 
 import json
 import os
+import sys
+import traceback
+import argparse
 
-'''
-lcconvクラス
-'''
-def execute(argv):
+def main():
     '''
     変換処理実行
     '''
+    # 引数パース
+    _argparser = argparse.ArgumentParser(description="Convert .asm data from a LovelyComposer music data(.jsonl file).")
+    _argparser.add_argument("infile", help=".jsonl filepath.")
+    _argparser.add_argument("--outfile", "-o", help=".asm filepath for output.", default="")
+    _argparser.add_argument("--force", "-f", action="store_const", const="", help="Ignore output even if the file exists.")
+    _argparser.add_argument("--version", "-v", action="version", version="%(prog)s 1.6.0")
+    _args = _argparser.parse_args()
+
+    # 入力ファイルのフルパスを設定
+    _inFilePath = filePathUtil(_args.infile)
+
+    # 出力ファイルのフルパスを設定
+    _outFilePath = ""
+    if _args.outfile != "":
+        _outFilePath = filePathUtil(_args.outfile)
+
+    # 引数チェック
+    try:
+        # 入力ファイルの拡張子は.jsonl以外はエラー
+        if os.path.splitext(_args.infile)[1] != ".jsonl":
+            raise Exception("File extension is not '.jsonl' " + _inFilePath)
+
+        # 入力ファイルの存在チェック
+        if os.path.exists(_inFilePath) == False:
+            raise Exception("File not found " + _inFilePath)
+
+        # 出力ファイルが省略された場合は入力ファイルパスの拡張子を .asm とする
+        if _outFilePath == "":
+            _outFilePath = os.path.splitext(_inFilePath)[0] + ".asm"
+
+        # 存在チェック
+        # オプション --force(-f)が設定されている場合はエラーとしない
+        if os.path.exists(_outFilePath) and _args.force == None:
+            raise FileExistsError("Specified file already exists " + _outFilePath)
+
+    except Exception as e:
+        print(traceback.format_exception_only(type(e), e)[0])
+        sys.exit()
+
     # 出力データクラスを初期化
-    dc = dataClass(argv[1])
+    dc = dataClass(_inFilePath, _outFilePath)
 
     # 変換処理実行
     dc.convert()
 
     # 出力データクラスからファイルに出力
     dc.export()
+
+def filePathUtil(path:str) -> str:
+    '''
+    ファイルパスユーティリティ\n
+    引数のパスにディレクトリを含んでいない場合、カレントディレクトリを付与したフルパスを生成して返却します。\n
+    \n
+    Parameters\n
+    ----------\n
+    path : str\n
+        ファイルパス
+    \n
+    Returns\n
+    -------\n
+    str\n
+        フルパスに編集後の文字列\n
+    '''
+    # 入力ファイルのフルパスからファイル名を取得
+    _filename = os.path.basename(path)
+
+    # 入力ファイルのフルパスからファイルパスを取得
+    _filepath = os.path.dirname(path)
+    if _filepath == "" or _filepath == None:
+        # ファイルパスが取得できなかった場合（ファイル名のみ指定された場合）は現在のパスを設定
+        _filepath = os.path.dirname(__file__)
+
+    return _filepath + os.sep + _filename
 
 class dataClass:
     '''
@@ -87,8 +152,11 @@ class dataClass:
     # ループ有無フラグ
     isLoop = False
 
-    # 出力ファイル名
-    outFileName = ""
+    # 入力ファイルパス
+    inFilePath = ""
+
+    # 出力ファイルパス
+    outFilePath = ""
 
     # 各値の退避変数を初期化
     svVoice = None
@@ -97,22 +165,40 @@ class dataClass:
     svNoiseTone = None
     svMixing = None
 
-    def __init__(self, jsonFileName = ""):
+    def __init__(self, _inFileName:str = "", _outFileName:str = ""):
         '''
         初期化処理
+        \n
+        Parameters\n
+        ----------\n
+        _inFileName : str\n
+        入力ファイルのフルパス\n
+        _outFileName : str\n
+        出力ファイルのフルパス\n
+        \n
+        Returns\n
+        -------\n
+        なし\n
         '''
         # 引数のjsonFileNameのjsonファイルを読み込み
-        filePath = os.path.normpath(os.path.join(os.path.dirname(__file__), jsonFileName))
-        with open(filePath) as f:
-            df_header = f.readline()
-            df_body = f.readline()
+        self.inFilePath = _inFileName
 
         # 出力ファイル名を設定
-        self.outFileName = os.path.splitext(jsonFileName)[0]
-        print("Convert [" + jsonFileName + "] to [" + self.outFileName + ".asm]")
+        self.outFilePath = _outFileName
 
-        # jsonデータをパース
+        print("input  [" + self.inFilePath + "]")
+        print("output [" + self.outFilePath + "]")
+
+        # 入力ファイルオープン
+        with open(self.inFilePath) as f:
+            # ヘッダ部
+            df_header = f.readline()
+            # ボディ部
+            df_body = f.readline()
+
+        # jsonデータをパース（ヘッダ部）
         self.data_header = json.loads(df_header)
+        # jsonデータをパース（ボディ部）
         self.data_body = json.loads(df_body)
 
     def convert(self):
@@ -365,15 +451,15 @@ class dataClass:
         ファイルエクスポート処理
         '''
         # 出力ファイル名
-        outFilePath = os.path.normpath(os.path.join(os.path.dirname(__file__), self.outFileName + ".asm"))
+#        outFilePath = os.path.normpath(os.path.join(os.path.dirname(__file__), self.outFilePath + ".asm"))
 
-        with open(outFilePath, mode="w") as f:
+        with open(self.outFilePath, mode="w") as f:
             # ヘッダー情報
-            f.write("_" + self.outFileName + ":\n")
+            f.write("_" + self.outFilePath + ":\n")
             f.write("    DB  0\n")
             for idx in range(3):
                 if len(self.dumpData[idx]) > 0:
-                    f.write("    DW  _" + self.outFileName + "_TRK" + str(idx+1) + "\n")
+                    f.write("    DW  _" + self.outFilePath + "_TRK" + str(idx+1) + "\n")
                 else:
                     f.write("    DW  $0000\n")
 
@@ -382,7 +468,7 @@ class dataClass:
                 if len(ch) == 0:
                     break
                 else:
-                    f.write("_" + self.outFileName + "_TRK" + str(idx+1) + ":\n")
+                    f.write("_" + self.outFilePath + "_TRK" + str(idx+1) + ":\n")
                     s = ""
                     for i, v in enumerate(ch):
                         if i % 16 == 0:
@@ -401,10 +487,4 @@ class dataClass:
         print("export complete.")
 
 if __name__ == "__main__":
-    '''
-    アプリケーション実行
-    '''
-#    execute(["", "00.jsonl"])
-
-    import sys
-    execute(sys.argv)
+    main()

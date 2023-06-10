@@ -231,11 +231,16 @@ pythonが必要ですので、別途インストールしてください。
 
 ### 利用方法
 
-カレントディレクトリにLovelyComposerのユーザーデータ(.jsonl)をコピーし、以下で実行します。  
+lc2asm.pyのあるディレクトリに移動し、以下で実行すると、.jsonlファイルのある場所に.asmファイルを作成します。  
 ```
-python src/python/lc2asm.py <jsonlファイル名>
+python lc2asm.py <jsonlファイルパス>
 ```
 作成された.asmファイルは、ソースに直接取り込むか、`INCLUDE`してください。  
+指定可能なオプションは以下のとおりです。  
+- --outfile/-o : 出力ファイルパスを指定  
+- --force/-f : 出力ファイルを上書きする  
+- --version/-v : バージョンを表示する  
+- --help/-h : ヘルプを表示する  
 
 ### サポートしている機能
 
@@ -256,10 +261,13 @@ LovelyComposerの機能に対し、作成されるデータには以下の制約
 
 ## 改訂履歴
 
+2023/06/10  Version 1.6  
+- lc2asm.py  
+    - 入力・出力ファイルのパス周りの処理修正、オプションの追加
+
 2023/02/12  Version 1.5.1  
 - psgdriver.asm  
     - include廃止、ワークエリアの先頭にラベル追加
-- readme更新  
 
 2022/08/14  Version 1.5.0  
 - psgdriver.asm  
@@ -274,13 +282,11 @@ LovelyComposerの機能に対し、作成されるデータには以下の制約
 - psgdriver.asm  
     - SFX再生時にBGMのプライオリティも判断するように修正  
         (プライオリティを最高に設定したBGMの演奏中はSFXが再生されなくなります)
-- readme更新  
 
 2022/05/29  Version 1.3.0  
 - psgdriver.asm  
     - バージョン表記をセマンティックバージョニングに合わせて修正  
     - H.TIMIフックのコールチェインができるよう、バックアップを保存し処理の最後でCALLするように修正。  
-- readme更新  
 
 2022/05/07  Version 1.20  
 - psgdriver.asm  

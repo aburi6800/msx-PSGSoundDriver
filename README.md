@@ -233,11 +233,16 @@ LovelyComposer can be purchased at the following sites.
 
 ### How to use
 
-Copy the LovelyComposer user data (`.jsonl`) into the same directory as `lc2asm.py` and execute the following:  
+Go to the directory where lc2asm.py is located and run the following to create an .asm file at the location where the .jsonl file is located.  
 ```
-python src/python/lc2asm.py <.jsonl filename>
+python lc2asm.py <.jsonl filepath>
 ```
-The created `.asm` file should be imported directly into the source or `INCLUDE`.  
+The created .asm file should be imported directly into the source or `INCLUDE`.  
+The options that can be specified are as follows:  
+- --outfile/-o : Specify output file path  
+- --force/-f : overwrite output file  
+- --version/-v : display version  
+- --help/-h : display help  
 
 ### Supported Features
 
@@ -258,10 +263,13 @@ Data conversion has the following limitations to LovelyComposer's functionality:
 
 ## Release notes
 
+2023/06/10  Version 1.6
+- lc2asm.py  
+    - Corrected processing around input and output file paths, added options  
+
 2023/02/12  Version 1.5.1  
 - psgdriver.asm  
     - Abolished "include" and added a label at the beginning of the work area    
-- README update
 
 2022/08/14  Version 1.5.0  
 - psgdriver.asm  
@@ -283,7 +291,6 @@ Data conversion has the following limitations to LovelyComposer's functionality:
     - Modified to save backup and CALL at the end of processing to allow call chaining of H.TIMI hooks.  
 - lc2asm.py  
     - Version notation modified to match semantic versioning  
-- README update
 
 2022/05/07  Version 1.20  
 - psgdriver.asm  
