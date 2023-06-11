@@ -263,6 +263,10 @@ Data conversion has the following limitations to LovelyComposer's functionality:
 
 ## Release notes
 
+2023/06/11  Version 1.6.1
+- lc2asm.py  
+    - Fixed a bug that caused output file labels to be full paths.  
+
 2023/06/10  Version 1.6
 - lc2asm.py  
     - Corrected processing around input and output file paths, added options  
