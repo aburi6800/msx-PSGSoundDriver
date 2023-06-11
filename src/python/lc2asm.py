@@ -450,16 +450,18 @@ class dataClass:
         '''
         ファイルエクスポート処理
         '''
-        # 出力ファイル名
+        # ラベル名
 #        outFilePath = os.path.normpath(os.path.join(os.path.dirname(__file__), self.outFilePath + ".asm"))
+        labelName = "_" + os.path.splitext(os.path.basename(self.outFilePath))[0]
+        print("Label :" + labelName)
 
         with open(self.outFilePath, mode="w") as f:
             # ヘッダー情報
-            f.write("_" + self.outFilePath + ":\n")
+            f.write(labelName + ":\n")
             f.write("    DB  0\n")
             for idx in range(3):
                 if len(self.dumpData[idx]) > 0:
-                    f.write("    DW  _" + self.outFilePath + "_TRK" + str(idx+1) + "\n")
+                    f.write("    DW  " + labelName + "_TRK" + str(idx+1) + "\n")
                 else:
                     f.write("    DW  $0000\n")
 
@@ -468,7 +470,7 @@ class dataClass:
                 if len(ch) == 0:
                     break
                 else:
-                    f.write("_" + self.outFilePath + "_TRK" + str(idx+1) + ":\n")
+                    f.write(labelName + "_TRK" + str(idx+1) + ":\n")
                     s = ""
                     for i, v in enumerate(ch):
                         if i % 16 == 0:
